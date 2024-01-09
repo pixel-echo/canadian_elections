@@ -1,0 +1,160 @@
+---
+title: "Canadian Federal Election (2021)"
+author: "Tara Chakkithara"
+format: html
+---
+
+The 2021 Canadian Federal Election consisted of around 5 Major parties :
+Liberal, Conservative, Bloc Québécois, New Democratic, Green. 
+There were other smaller parties and independent candidates but these were the major players competing for 338 seats in the Canadian House of Commons. 
+
+To understand how the seats how the seats were distributed in 2021 we want to generate a dataset and a graph. Both of which look somewhat like the examples below. 
+
+![](IMG_0109.jpeg)
+![](IMG_0110.jpeg)
+
+
+
+
+```{r}
+# install.packages("tidyverse")
+# install.packages("janitor")
+library(tidyverse)
+library(janitor)
+```
+
+First we can simulate some data to see what a dataset would look like. Different ridings in Canada have different names but in this simulation we can use numbers to represent each riding. Since we want to look at the major parties any candiate that falls outside the major 5 parties is considered an "Other" candiate. 
+
+For each riding we take a random sample with replacement from the parties using sample(). 
+```{r}
+# Data Simulation
+# Each number represents a riding. 
+
+simulated_data <- tibble(
+  "Riding" = 1:338,
+  "Party" = sample(
+    x = c("Liberal", "Conservative", "Green", "Other", "Bloc Québécois", "New Democratic"), 
+    size = 338,
+    replace = TRUE
+  )
+)
+simulated_data
+```
+The dataframe above is around what our dataset should look like. 
+
+Now we can acquire raw 2021 election data and begin cleaning it. 
+```{r}
+# Acquire data from source.
+# Added data csv to posit Cloud. 
+
+raw_data <- read_csv(
+  file = "table_tableau11.csv",
+  show_col_types = FALSE
+)
+glimpse(raw_data)
+
+```
+
+```{r}
+# Clean the names using janitor. 
+
+clean_data <- clean_names(raw_data)
+glimpse(clean_data)
+```
+
+We downsize our dataset into one with the two columns we care about :
+riding and candidate.  
+```{r}
+# select the necessary columns. 
+clean_data <- clean_data |>
+  select(
+    electoral_district_name_nom_de_circonscription,
+    elected_candidate_candidat_elu
+  )
+glimpse(clean_data)
+```
+
+```{r}
+# rename the columns byt getting rid of the french names at the end.  
+clean_data <- clean_data |>
+  rename(
+    electoral_district_name = electoral_district_name_nom_de_circonscription,
+    elected_candidate = elected_candidate_candidat_elu
+  )
+glimpse(clean_data)
+```
+
+```{r}
+head(clean_data)
+```
+We now clean the elected_candiate column to only show the party and not the candidate name. 
+
+```{r}
+clean_data <-
+  clean_data |>
+  separate(
+    col = elected_candidate,
+    into = c("Other", "party"),
+    sep = "/"
+  ) |>
+  select(-Other)
+clean_data
+```
+We see that only 5 parties won seats in the House of Commons. 
+```{r}
+clean_data$party |>
+  unique()
+```
+
+We can translate the french party names to english ones. 
+```{r}
+clean_data <- clean_data |>
+  mutate(
+    party = case_match(clean_data$party,
+    "Libéral" ~ "Liberal",
+    "Conservateur" ~ "Conservative",
+    "Bloc Québécois" ~ "Bloc Québécois",
+    "NPD-Nouveau Parti démocratique" ~ "New Democratic",
+    "Parti Vert" ~ "Green"
+  )
+  )
+head(clean_data)
+
+```
+Now we have generated the dataset that we planned to. Using this dataset we can create a graph that looks at how many seats each party won. 
+
+```{r}
+clean_data |>
+  count(party)
+```
+
+
+```{r}
+# graph using ggplot2.
+
+clean_data |>
+  ggplot(
+    mapping = aes(x = party)
+  ) +
+  theme(
+    plot.title = element_text(family = "Helvetica", size = 10),
+  ) +
+  theme_minimal() +
+  geom_bar() +
+  labs(
+    title = "Canadian 2021 Election",
+    y = "Number of Seats",
+    x = "Party"
+  )
+```
+
+The graph above shows us the distribution of the 338 seats in the Canadian House of Commons. The liberal party won 160 seats. The conservative party won 119 seats. The Green party won 2 seats, and the new democratic party won 25 seats.
+
+The majority of the seats went to the Liberal and Conservative party and no independent or small parties won. This may be due to the fact that smaller parties and individuals usually don't have as many resources as major parties to advertise their political thoughts. This hypothesis may be explored more using funding data. 
+
+Another factor that contibutes to this distribution is that, not every canadian votes. Certain types of people may be more likely to vote. Maybe more strongly opinionated members of society vote more? Certain members of the canadian population may also face bariers to voting such as lacking the knowledge that an election is happening, lacking the time to vote, etc. 
+
+So the 2021 seat distribution doesn't reflect the will of the entire canadian population but just the will of Canadian voters. This is important to keep in mind when making generalizations about Canada using this data. 
+
+The graph above was created using the R statistical language. First Canadian 2021 election data was cleaned and transformed into a usable data set containing a party and a riding column. This was done using the tidyverse and janitor packages. Then that data set was graphed using the ggplot2 package. 
+
